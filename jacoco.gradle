@@ -1,0 +1,105 @@
+apply plugin: 'jacoco'
+
+project.afterEvaluate {
+
+  jacoco {
+    toolVersion = "0.8.3"
+    reportsDir = file("$buildDir/build/reports")
+  }
+
+  def coverageSourceDirs = [
+          "${rootDir}/app/src/main/kotlin"
+  ]
+
+  def buildTypes = android.buildTypes.collect { it }
+
+  def excluded = [
+          '**/R.class',
+          '**/R$*.class',
+          '**/*Module.class',
+          '**/*Module_*.class',
+          '**/*Component.class',
+          '**/Dagger*',
+          '**/*_Factory.class',
+          '**/*_ViewBinding*.class',
+          '**/*_MembersInjector.class',
+          '**/TempApp*',
+          '**/NotesApp.Companion*',
+          '**/BuildConfig*',
+          '**/test/**',
+          '**/Manifest*',
+          '**/*Activity*.*',
+          '**/*Fragment*.*'
+  ]
+
+  buildTypes.each { buildType ->
+    if (!buildType.testCoverageEnabled) {
+      return
+    }
+
+    def buildTypeName = buildType.name.capitalize()
+    def testTaskName = "test${buildTypeName}UnitTest"
+
+    task "jacoco${buildTypeName}TestReport"(type: JacocoReport, dependsOn: testTaskName) {
+
+      group = "Reporting"
+      description = "Generate Jacoco coverage report for ${buildTypeName} build."
+
+      classDirectories = fileTree(
+              dir: "${rootDir}/presentation/build/tmp/kotlin-classes/${buildType.name}",
+              excludes: excluded
+      )
+
+      sourceDirectories = files(coverageSourceDirs)
+      executionData = files("${buildDir}/jacoco/${testTaskName}.exec")
+
+      reports {
+        html.enabled true
+        xml.enabled false
+      }
+    }
+  }
+}
+def excluded = [
+        '**/R.class',
+        '**/R$*.class',
+        '**/*Module.class',
+        '**/*Module_*.class',
+        '**/*Component.class',
+        '**/Dagger*',
+        '**/*_Factory.class',
+        '**/*_ViewBinding*.class',
+        '**/*_MembersInjector.class',
+        '**/NotesApp.Companion*',
+        '**/BuildConfig*',
+        '**/test/**',
+        '**/Manifest*',
+        '**/BaseActivity*',
+        //'**/*Activity.*',
+        '**/*Fragment.*',
+        '**/MainActivity*',
+        '**/Optional*',
+        '**/UserVO*',
+        '**/AppDatabase.*',
+        '**/BaseViewModel.*'
+]
+def mainSrc = fileTree(dir: "${project.projectDir}/src/main/java")
+///*, excludes: ['**/model/**']*/
+def debugTree = fileTree(dir: "${buildDir}/intermediates/classes/debug", excludes: excluded)
+def kotlinDebugTree = fileTree(dir: "${buildDir}/tmp/kotlin-classes/debug", excludes: excluded) + fileTree(dir: "${buildDir}/intermediates/classes/debug", excludes: excluded)
+
+task jacocoTestReport(type: JacocoReport, dependsOn: "test") {
+  group = "Reporting"
+  description = "Generating Jacoco coverage reports"
+
+  reports {
+    xml.enabled = true
+    html.enabled = true
+    xml.destination file("${rootProject.buildDir}/reports/jacocoTestReport-${project.name}.xml")
+    html.destination file("${buildDir}/reports/jacoco")
+  }
+  sourceDirectories = files([mainSrc])
+  classDirectories = files([debugTree], [kotlinDebugTree])
+  executionData = fileTree(dir: buildDir, includes:
+          ['**/*.exec', '**/*.ec'])
+}
